@@ -1,0 +1,313 @@
+type: edu
+custom_name: Looking good!
+files:
+- name: src/life/Main.java
+  visible: true
+  text: |
+    package life;
+
+    public class Main {
+        public static void main(String[] args) {
+            System.out.println("Hello, world!");
+        }
+    }
+  learner_created: false
+- name: test/GameOfLifeTest.java
+  visible: false
+  text: |
+    import life.GameOfLife;
+    import org.assertj.swing.fixture.JLabelFixture;
+    import org.hyperskill.hstest.dynamic.DynamicTest;
+    import org.hyperskill.hstest.stage.SwingTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testing.swing.SwingComponent;
+
+    import java.util.regex.Matcher;
+    import java.util.regex.Pattern;
+
+    import static org.hyperskill.hstest.testcase.CheckResult.correct;
+    import static org.hyperskill.hstest.testcase.CheckResult.wrong;
+
+    public class GameOfLifeTest extends SwingTest {
+
+        public GameOfLifeTest() {
+            super(new GameOfLife());
+        }
+
+        @SwingComponent(name = "GenerationLabel")
+        JLabelFixture generationLabel;
+
+        @SwingComponent(name = "AliveLabel")
+        JLabelFixture aliveLabel;
+
+        @DynamicTest(order = 1)
+        CheckResult testWindow() {
+            requireVisible(window);
+            return correct();
+        }
+
+        @DynamicTest(order = 2)
+        CheckResult testGenerationLabel() {
+            requireEnabled(generationLabel);
+            requireVisible(generationLabel);
+            return correct();
+        }
+
+        @DynamicTest(order = 3)
+        CheckResult testAliveLabel() {
+            requireEnabled(aliveLabel);
+            requireVisible(aliveLabel);
+            return correct();
+        }
+
+        @DynamicTest(order = 4)
+        CheckResult testForInteger() {
+
+            Pattern pattern = Pattern.compile("\\d+");
+            Matcher matcher = pattern.matcher(generationLabel.text());
+
+            if (!matcher.find()) {
+                return wrong("The 'GenerationLabel' doesn't contain an integer number!");
+            }
+
+            matcher = pattern.matcher(aliveLabel.text());
+
+            if (!matcher.find()) {
+                return wrong("The 'AliveLabel' doesn't contain an integer number!");
+            }
+
+            return correct();
+        }
+    }
+  learner_created: false
+- name: src/life/Evolution.java
+  visible: true
+  text: |
+    package life;
+
+    public class Evolution {
+
+        Universe newUniverse;
+        Universe baseUniverse;
+        int generations;
+        public Evolution(Universe baseUniverse, Universe newUniverse,int generations) {
+            this.baseUniverse = baseUniverse;
+            this.newUniverse = newUniverse;
+            this.generations = generations;
+        }
+
+        public void evolutionGo() {
+            for (int i = 0; i < this.generations; i++) {
+                calculateNewUniverse();
+                System.out.println(this.newUniverse.printUniverse(i));
+            }
+        }
+
+        private void calculateNewUniverse() {
+            Universe universe = this.baseUniverse;
+            Universe newUniverse = this.newUniverse;
+            String[][] currentUniverse = universe.universe;
+            String[][] newUniverseArray = newUniverse.universe;
+            int numberOfNeighbours;
+            for (int i = 0; i < universe.size; i++) {
+                for (int j = 0; j < universe.size; j++) {
+                    numberOfNeighbours = findNumberOfNeighbours(currentUniverse, i, j);
+                    if (numberOfNeighbours < 2 || numberOfNeighbours > 3) {
+                        newUniverseArray[i][j] = " ";
+                    } else if ((numberOfNeighbours == 2 || numberOfNeighbours == 3) && currentUniverse[i][j].equals("O")) {
+                        newUniverseArray[i][j] = "O";
+                    } else if (currentUniverse[i][j].equals(" ") && numberOfNeighbours == 3) {
+                        newUniverseArray[i][j] = "O";
+                    }
+                }
+            }
+            this.baseUniverse.saveState(newUniverseArray);
+        }
+
+        private int findNumberOfNeighbours(String[][] currentUniverse, int row, int column) {
+            int numberOfNeighbours = 0;
+            int newRow;
+            int newColumn;
+            int size = currentUniverse.length;
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    newRow = row + i;
+                    newColumn = column + j;
+
+                    if(newRow < 0) {
+                        newRow = size - 1;
+                    }
+
+                    if(newRow >= size) {
+                        newRow = 0;
+                    }
+
+                    if(newColumn < 0) {
+                        newColumn = size - 1;
+                    }
+
+                    if(newColumn >= size) {
+                        newColumn = 0;
+                    }
+
+                    if(currentUniverse[newRow][newColumn].equals("O") && !(newRow == row && newColumn == column)){
+                        numberOfNeighbours++;
+                    }
+                }
+            }
+            return numberOfNeighbours;
+        }
+    }
+  learner_created: true
+- name: src/life/Universe.java
+  visible: true
+  text: |
+    package life;
+
+    import java.util.Arrays;
+    import java.util.Random;
+
+    public class Universe {
+        String [][]universe;
+        int seed;
+
+        int size;
+
+        public Universe(int seed, int size) {
+            this.seed = seed;
+            this.size = size;
+            createUniverse(seed, size);
+        }
+
+        public Universe(int size) {
+            this.size = size;
+            createUniverse(size);
+        }
+
+        public String[][] getUniverse() {
+            return universe;
+        }
+
+        @Override
+        public String toString() {
+            String printedUniverse = "";
+            String [][]universe = this.universe;
+            for (int i = 0; i < this.size; i++) {
+                for (int j = 0; j < this.size; j++) {
+                    printedUniverse += universe[i][j];
+                }
+                printedUniverse +="\n";
+            }
+            return printedUniverse;
+        }
+
+        public String printUniverse(int generation) {
+            int alive = getAlive();
+            String printedUniverse = "Generation: #" + generation + "\n"
+                    + "Alive: " + alive + "\n";
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    printedUniverse += universe[i][j];
+                }
+                printedUniverse +="\n";
+            }
+            return printedUniverse;
+        }
+
+        private int getAlive() {
+            int alive = 0;
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    if(universe[i][j].equals("O")) {
+                       alive++;
+                    }
+                }
+            }
+
+            return alive;
+        }
+
+        public void setUniverse(String[][] universe) {
+            this.universe = universe;
+        }
+
+        public void saveState(String[][] universe) {
+            int size = this.size;
+            String[][] newUniverse = new String[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    newUniverse[i][j] = universe[i][j];
+                }
+            }
+            this.setUniverse(newUniverse);
+        }
+
+        public int getSeed() {
+            return seed;
+        }
+
+        public void setSeed(int seed) {
+            this.seed = seed;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public void setSize(int size) {
+            this.size = size;
+        }
+
+        void createUniverse(int seed, int size) {
+
+            Random rand = new Random(seed);
+            String[][] universe = new String[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    universe[i][j] = rand.nextBoolean() ? "O" : " ";
+                }
+            }
+
+            setUniverse(universe);
+        }
+
+        void createUniverse(int size) {
+            Random rand = new Random();
+            String[][] universe = new String[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    universe[i][j] = rand.nextBoolean() ? "O" : " ";
+                }
+            }
+
+            setUniverse(universe);
+        }
+    }
+  learner_created: true
+- name: src/life/Book.java
+  visible: true
+  text: |
+    package life;
+
+    class Book {
+
+        private String title;
+        private int yearOfPublishing;
+        private String[] authors;
+
+
+    }
+  learner_created: true
+- name: src/life/GameOfLife.java
+  visible: true
+  learner_created: true
+feedback_link: https://hyperskill.org/learn/step/5440#comment
+status: Solved
+feedback:
+  message: Congratulations!
+  time: "Tue, 14 Mar 2023 01:26:30 UTC"
+record: 4

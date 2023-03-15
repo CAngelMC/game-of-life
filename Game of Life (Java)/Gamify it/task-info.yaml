@@ -1,0 +1,493 @@
+type: edu
+files:
+- name: src/life/Main.java
+  visible: true
+  text: |
+    package life;
+
+    public class Main {
+        public static void main(String[] args) {
+            System.out.println("Hello, world!");
+        }
+    }
+  learner_created: false
+- name: test/GameOfLifeTest.java
+  visible: false
+  text: |
+    import life.GameOfLife;
+    import org.assertj.swing.fixture.JButtonFixture;
+    import org.assertj.swing.fixture.JLabelFixture;
+    import org.assertj.swing.fixture.JToggleButtonFixture;
+    import org.hyperskill.hstest.common.Utils;
+    import org.hyperskill.hstest.dynamic.DynamicTest;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.stage.SwingTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testing.swing.SwingComponent;
+
+    import java.util.regex.Matcher;
+    import java.util.regex.Pattern;
+
+    import static org.hyperskill.hstest.testcase.CheckResult.correct;
+    import static org.hyperskill.hstest.testcase.CheckResult.wrong;
+
+    public class GameOfLifeTest extends SwingTest {
+
+        public GameOfLifeTest() {
+            super(new GameOfLife());
+        }
+
+        @SwingComponent(name = "GenerationLabel")
+        JLabelFixture generationLabel;
+
+        @SwingComponent(name = "AliveLabel")
+        JLabelFixture aliveLabel;
+
+        @SwingComponent(name = "PlayToggleButton")
+        JToggleButtonFixture playButton;
+
+        @SwingComponent(name = "ResetButton")
+        JButtonFixture resetButton;
+
+        @DynamicTest(order = 1)
+        CheckResult testWindow() {
+            requireVisible(window);
+            return correct();
+        }
+
+        @DynamicTest(order = 2)
+        CheckResult testGenerationLabel() {
+            requireEnabled(generationLabel);
+            requireVisible(generationLabel);
+            return correct();
+        }
+
+        @DynamicTest(order = 3)
+        CheckResult testAliveLabel() {
+            requireEnabled(aliveLabel);
+            requireVisible(aliveLabel);
+            return correct();
+        }
+
+        @DynamicTest(order = 4)
+        CheckResult testForIntegerInLabels() {
+
+            Pattern pattern = Pattern.compile("\\d+");
+            Matcher matcher = pattern.matcher(generationLabel.text());
+
+            if (!matcher.find()) {
+                return wrong("The 'GenerationLabel' doesn't contain an integer number!");
+            }
+
+            matcher = pattern.matcher(aliveLabel.text());
+
+            if (!matcher.find()) {
+                return wrong("The 'AliveLabel' doesn't contain an integer number!");
+            }
+
+            return correct();
+        }
+
+        @DynamicTest(order = 5)
+        CheckResult testPlayButton() {
+            requireEnabled(playButton);
+            requireVisible(playButton);
+            try {
+                playButton.click();
+            } catch (IllegalStateException e) {
+                throw new WrongAnswer("Make sure that the PlayToggleButton is shown.");
+            }
+            playButton.click();
+            return correct();
+        }
+
+        @DynamicTest(order = 6)
+        CheckResult testResetButton() {
+            requireEnabled(resetButton);
+            requireVisible(resetButton);
+            resetButton.click();
+            return correct();
+        }
+
+        @DynamicTest(order = 7)
+        CheckResult testButtonsActions() {
+
+            playButton.uncheck();
+            resetButton.click();
+
+            int firstGenerationNumber = getNumberFromLabel(generationLabel);
+            Utils.sleep(200);
+            int secondGenerationNumber = getNumberFromLabel(generationLabel);
+
+            if (firstGenerationNumber != secondGenerationNumber) {
+                return wrong("When PlayToggleButton is not toggled the program shouldn't generate new generations! The number in GenerationLabel shouldn't change!");
+            }
+
+            resetButton.click();
+            firstGenerationNumber = getNumberFromLabel(generationLabel);
+            playButton.check();
+            Utils.sleep(200);
+            secondGenerationNumber = getNumberFromLabel(generationLabel);
+
+            if (firstGenerationNumber == secondGenerationNumber) {
+                return wrong("When PlayToggleButton is toggled the program should generate new generations! The number in GenerationLabel should change!\n" +
+                        "Also make sure your program doesn't sleep more than 150 ms after each generation!");
+            }
+
+            return correct();
+        }
+
+        private static int getNumberFromLabel(JLabelFixture labelFixture) {
+            Pattern pattern = Pattern.compile("\\d+");
+            Matcher matcher = pattern.matcher(labelFixture.text());
+
+            System.out.println(labelFixture.text());
+
+            if (!matcher.find()) {
+                throw new WrongAnswer("Can't find a number in the '" + labelFixture.text() + "'!");
+            }
+
+            return Integer.parseInt(matcher.group());
+        }
+    }
+  learner_created: false
+- name: src/life/Evolution.java
+  visible: true
+  text: |
+    package life;
+
+    import java.util.concurrent.TimeUnit;
+
+    public class Evolution {
+
+        Universe newUniverse;
+        Universe baseUniverse;
+        int generations;
+
+        GameOfLife gameOfLife;
+        public Evolution(Universe baseUniverse, Universe newUniverse,int generations, GameOfLife gameOfLife) {
+            this.baseUniverse = baseUniverse;
+            this.newUniverse = newUniverse;
+            this.generations = generations;
+            this.gameOfLife = gameOfLife;
+        }
+
+        public void evolutionGo() {
+            for (int i = 0; i < this.generations; i++) {
+                calculateNewUniverse();
+                gameOfLife.setGenerationLabel(i);
+                gameOfLife.setAliveLabel(this.newUniverse.getAlive());
+                gameOfLife.updateUniverse(this.newUniverse.getUniverse());
+                try {
+                    TimeUnit.NANOSECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+
+        private void calculateNewUniverse() {
+            Universe universe = this.baseUniverse;
+            Universe newUniverse = this.newUniverse;
+            String[][] currentUniverse = universe.universe;
+            String[][] newUniverseArray = newUniverse.universe;
+            int numberOfNeighbours;
+            for (int i = 0; i < universe.size; i++) {
+                for (int j = 0; j < universe.size; j++) {
+                    numberOfNeighbours = findNumberOfNeighbours(currentUniverse, i, j);
+                    if (numberOfNeighbours < 2 || numberOfNeighbours > 3) {
+                        newUniverseArray[i][j] = " ";
+                    } else if ((numberOfNeighbours == 2 || numberOfNeighbours == 3) && currentUniverse[i][j].equals("O")) {
+                        newUniverseArray[i][j] = "O";
+                    } else if (currentUniverse[i][j].equals(" ") && numberOfNeighbours == 3) {
+                        newUniverseArray[i][j] = "O";
+                    }
+                }
+            }
+            this.baseUniverse.saveState(newUniverseArray);
+        }
+
+        private int findNumberOfNeighbours(String[][] currentUniverse, int row, int column) {
+            int numberOfNeighbours = 0;
+            int newRow;
+            int newColumn;
+            int size = currentUniverse.length;
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    newRow = row + i;
+                    newColumn = column + j;
+
+                    if(newRow < 0) {
+                        newRow = size - 1;
+                    }
+
+                    if(newRow >= size) {
+                        newRow = 0;
+                    }
+
+                    if(newColumn < 0) {
+                        newColumn = size - 1;
+                    }
+
+                    if(newColumn >= size) {
+                        newColumn = 0;
+                    }
+
+                    if(currentUniverse[newRow][newColumn].equals("O") && !(newRow == row && newColumn == column)){
+                        numberOfNeighbours++;
+                    }
+                }
+            }
+            return numberOfNeighbours;
+        }
+    }
+  learner_created: true
+- name: src/life/Universe.java
+  visible: true
+  text: |
+    package life;
+
+    import java.util.Arrays;
+    import java.util.Random;
+
+    public class Universe {
+        String [][]universe;
+        int seed;
+
+        int size;
+
+        public Universe(int seed, int size) {
+            this.seed = seed;
+            this.size = size;
+            createUniverse(seed, size);
+        }
+
+        public Universe(int size) {
+            this.size = size;
+            createUniverse(size);
+        }
+
+        public String[][] getUniverse() {
+            return universe;
+        }
+
+        @Override
+        public String toString() {
+            String printedUniverse = "";
+            String [][]universe = this.universe;
+            for (int i = 0; i < this.size; i++) {
+                for (int j = 0; j < this.size; j++) {
+                    printedUniverse += universe[i][j];
+                }
+                printedUniverse +="\n";
+            }
+            return printedUniverse;
+        }
+
+        public String printUniverse(int generation) {
+            int alive = getAlive();
+            String printedUniverse = "Generation: #" + generation + "\n"
+                    + "Alive: " + alive + "\n";
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    printedUniverse += universe[i][j];
+                }
+                printedUniverse +="\n";
+            }
+            return printedUniverse;
+        }
+
+        public int getAlive() {
+            int alive = 0;
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    if(universe[i][j].equals("O")) {
+                       alive++;
+                    }
+                }
+            }
+
+            return alive;
+        }
+
+        public void setUniverse(String[][] universe) {
+            this.universe = universe;
+        }
+
+        public void saveState(String[][] universe) {
+            int size = this.size;
+            String[][] newUniverse = new String[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    newUniverse[i][j] = universe[i][j];
+                }
+            }
+            this.setUniverse(newUniverse);
+        }
+
+        public int getSeed() {
+            return seed;
+        }
+
+        public void setSeed(int seed) {
+            this.seed = seed;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public void setSize(int size) {
+            this.size = size;
+        }
+
+        void createUniverse(int seed, int size) {
+
+            Random rand = new Random(seed);
+            String[][] universe = new String[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    universe[i][j] = rand.nextBoolean() ? "O" : " ";
+                }
+            }
+
+            setUniverse(universe);
+        }
+
+        void createUniverse(int size) {
+            Random rand = new Random();
+            String[][] universe = new String[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    universe[i][j] = rand.nextBoolean() ? "O" : " ";
+                }
+            }
+
+            setUniverse(universe);
+        }
+    }
+  learner_created: true
+- name: src/life/GameOfLife.java
+  visible: true
+  text: |-
+    package life;
+
+    import javax.swing.*;
+    import java.awt.*;
+
+    public class GameOfLife extends JFrame {
+
+        private JLabel generationLabel;
+
+        public void setGenerationLabel(int generation) {
+            generationLabel.setText("Generation #" + generation);
+        }
+
+        public void setAliveLabel(int alive) {
+            aliveLabel.setText("Alive: " + alive);
+        }
+
+        private JLabel aliveLabel;
+        private JPanel scenarioBackground;
+        private JPanel[][] grids;
+        public GameOfLife() {
+            super("Game of Life");
+            generationLabel = new JLabel();
+            aliveLabel = new JLabel();
+            scenarioBackground = new JPanel();
+
+            generationLabel.setName("GenerationLabel");
+            aliveLabel.setName("AliveLabel");
+
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setSize(320, 370);
+            setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
+            setVisible(true);
+
+            generationLabel.setText("Generation #0");
+            aliveLabel.setText("Alive: 0");
+
+            scenarioBackground.setBackground(Color.BLACK);
+            scenarioBackground.setBounds(0, 50, 320, 320);
+
+            add(generationLabel);
+            add(aliveLabel);
+            add(scenarioBackground);
+
+            int size = 8;
+            boolean flag = true;
+
+            grids = new JPanel[size][size];
+
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    grids[i][j] = new JPanel();
+                    if (flag) {
+                       grids[i][j].setBackground(Color.GREEN);
+                    } else {
+                        grids[i][j].setBackground(Color.BLACK);
+                    }
+                    flag = !flag;
+
+                    grids[i][j].setBounds(j * 40, i*40, 40, 40);
+                    scenarioBackground.add(grids[i][j]);
+                }
+                flag = !flag;
+            }
+
+            scenarioBackground.setLayout(new GridLayout(size, size, 0, 0));
+
+            try {
+                life(size, 10);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public void life(int size, int generations) throws InterruptedException {
+            Universe baseUniverse = new Universe(size);
+            Universe newUniverse = new Universe(size);
+            Evolution evolution = new Evolution(baseUniverse, newUniverse, generations, this);
+
+            evolution.evolutionGo();
+        }
+
+        public void updateUniverse(String[][] universe) {
+            for (int i = 0; i < universe.length; i++) {
+                for (int j = 0; j < universe.length; j++) {
+                    if (universe[i][j].equals("O")) {
+                       grids[i][j].setBackground(Color.GREEN);
+                    } else {
+                        grids[i][j].setBackground(Color.BLACK);
+                    }
+                }
+            }
+        }
+
+    }
+  learner_created: true
+- name: src/life/Book.java
+  visible: true
+  text: |
+    package life;
+
+    class Book {
+
+        private String title;
+        private int yearOfPublishing;
+        private String[] authors;
+
+
+    }
+  learner_created: true
+feedback_link: https://hyperskill.org/learn/step/5441#comment
+status: Solved
+feedback:
+  message: Well done! You've finished the project. Select a new project on <a href="https://hyperskill.org/projects">JetBrains
+    Academy</a> to continue learning.
+  time: "Wed, 15 Mar 2023 00:26:19 UTC"
+record: -1

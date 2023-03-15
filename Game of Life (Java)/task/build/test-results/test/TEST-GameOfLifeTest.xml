@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="GameOfLifeTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2023-03-15T00:26:01" hostname="DESKTOP-4CO17I2" time="17.854">
+  <properties/>
+  <testcase name="start" classname="GameOfLifeTest" time="17.854"/>
+  <system-out><![CDATA[?[1;31m
+Start test 1?[0m
+?[1;31m
+Start test 2?[0m
+?[1;31m
+Start test 3?[0m
+?[1;31m
+Start test 4?[0m
+?[1;31m
+Start test 5?[0m
+?[1;31m
+Start test 6?[0m
+?[1;31m
+Start test 7?[0m
+?[0;34mGeneration #39
+?[0m?[0;34mGeneration #39
+?[0m?[0;34mGeneration #39
+?[0m?[0;34mGeneration #1
+?[0m]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
